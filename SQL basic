@@ -1,0 +1,468 @@
+###some SQL basics
+CREATE TABLE zoo(
+	animal varchar(10),
+	uniq_id integer PRIMARY KEY,
+	water_need integer
+);
+
+--you can add on CONSTRAINTS onto each row
+CREATE TABLE customers(
+	ID INT NOT NULL,  //cannot have null
+	NAME VARCHAR(20) UNIQUE,      //cannot have the same name
+	AGE INT   NOT NULL CHECK(AGE >= 18),     //you canNOT have a customer below 18     
+	SALARY DECIMAL (19,2) DEFAULT 5000.00,  //sets not entered values to 5000
+	PRIMARY KEY(ID)    //sets ID as the primary key
+);
+--how to change or drop the constraints
+MODIFY SALARY DECIMAL (18,2) DEFAULT 5000.00;  //this changes salary to default to an EXISTING table without the constraint
+ALTER TABLE customers
+	ALTER COLUMN SALARY DROP DEFAULT;
+
+--if you are just interested in a column you can use INDEX
+CREATE INDEX idx_age
+	ON customers(AGE);
+--to drop the index
+ALTER TABLE customers
+	DROP INDEX idx_age;
+
+INSERT INTO zoo(animal, uniq_id, water_need) VALUES
+	('elephant', 1001, 500)
+	('elephant', 1002, 500)
+	('tiger', 1003, 550)
+	....
+
+//SELECT * FROM table_name;
+SELECT * FROM zoo; //selects the whole table
+SELECT animal, water_need FROM zoo; //only selects the animal clm and water_need clm
+SELECT animal, animal, animal FROM zoo; //shows 3 of the same animal clms
+SELECT * FROM zoo LIMIT 10; //shows the first 10 lines only
+SELECT * FROM zoo WHERE animal = 'elephant'; //selects only rows where it says elephant
+SELECT * FROM zoo WHERE animal = 'zabra' LIMIT 3; //selets first 3 row where it is zebra
+
+##SQL operators:
+= equals to
+<> not equals to
+!= not equals to
+
+//select everything BUT the zebras
+SELECT * FROM zoo WHERE animal <> 'zebra';
+SELECT * FROM zoo WHERE water_need < 300;
+
+//suppose you have rows of zebra, zebrakadabra, zebrak, zebral and you want to select all
+SELECT * FROM zoo WHERE animal LIKE 'zebra%';  //the % means any string can follow zebra
+
+//select animals with at least one 'e' in their name
+SELECT * FROM zoo WHERE animal LIKE '%e%';
+//select whos name ends with roo
+SELECT * FROM zoo WHERE animal LIKE '%roo';
+
+//the wildcard _. this means any character you want, but only length one
+//say you want all animals whose name is exactly 5 characters long
+SELECT * FROM zoo WHERE animal LIKE '_____' //5'_'
+
+//NOT operator, select animals not 5 char long
+SELECT * FROM zoo WHERE animal NOT LIKE '_____';
+
+//want all animals with 5 char long but NOT tigers and water need > 200
+SELECT 
+	* 
+FROM 
+	zoo 
+WHERE 
+	animal LIKE '_____' 
+	AND animal <> 'tiger'
+	AND water_need > 200;  //you can keep adding AND operators as long as there is no ;
+
+//OR operator
+SELECT
+	*
+FROM 
+	zoo
+WHERE
+	water_need < 300;
+	OR animal = 'lion';
+
+//select with specific uniq_id
+SELECT
+	*
+FROM
+	zoo
+WHERE
+	uniq_id = 1001
+	OR uniq_id = 1012
+	OR uniq_id = 1018;  //YOU CAN SOLVE THIS PROBELM WITH IN
+
+SELECT
+	*
+FROM
+	zoo
+WHERE
+	uniq_id IN (1001,1012,1018);
+
+
+
+
+
+//Import data from csv files
+CREATE YABLE flight (
+	year INTEGER,
+	month INTEGER,
+	dayofmonth INTEGER,
+	dayofweek INTEGER,
+	deptime INTEGER,
+	arrtime INTEGER,
+	flightnum INTEGER,
+	tailnum VARCHAR,
+	airtime INTEGER,
+	arrdelay INTEGER,
+	depdelay INTEGER,
+	origin VARCHAR,
+	dest VARCHAR,
+	distance INTEGER);
+
+//assume you already have a .csv file with the same headings
+COPY flight FROM 'user/desktop/sql_ready.csv' DELIMITER ',' CSV HEADER;
+//check if you imported right
+SELECT * FROM flight LIMIT 10;
+
+//you want to see all rows whos flight was in April 2007 on even weekdays(2,4,6), the distance < 50
+//either departure or arrical delay was less than 0
+SELECT
+	*
+FROM
+	flight
+WHERE month = 4
+	AND dayofweek IN (2,4,6)
+	AND distance < 50
+	AND (arrdelay < 0
+	OR depdelay < 0);
+
+
+//now we want the count of lines that use every clm
+SELECT COUNT(*)
+FROM flight
+LIMIT 10;
+
+//this is the same as *
+SELECT COUNT(arrdelay)
+FROM flight
+LIMTI 10;
+
+//find the summary of clm airtime
+SELECT SUM(airtime)
+FROM flight;
+
+//find mean of arrival delays
+SELECT AVG(arrdelay)
+FROM flight;
+
+//find max, min
+SELECT MIN(distance)
+FROM flight;
+SELECT max(arrdelay)
+FROM flight;
+
+
+
+
+#####segementation
+////suppose we want to find out which airport has the longest avg delays
+//step1: specify which clms to work with as input, we use origin and depdelay
+//step2: specify which clm to create the segmentation for, we will use origin
+//step3: calculate avg of each group
+SELECT
+	AVG(depdelay),
+	origin
+FROM flight
+GROUP BY origin;
+
+//print monthly total airtime
+SELECT 
+	month,
+	SUM(airtime)
+FROM flight
+GROUP BY month;
+
+//find avg departure delay by airport, but only flight with more than 2000 miles
+SELECT
+	AVG(depdelay),
+	origin
+FROM flight
+WHERE distance > 2000
+GROUP by origin;
+
+//the above code generates a new line called avg, but we can change the name to make is more readable
+SELECT
+	AVG(depdelay) AS average_depdelay,
+	origin
+FROM flight
+GROUP BY origin;
+
+
+####ORDER BY
+//want to see which airport is the busiest
+SELECT
+	COUNT(*),
+	origin
+FROM flight
+GROUP BY origin
+ORDER BY count; //this creates a new clm with the name 'count'
+
+//if you want descending order
+SELECT
+	COUNT(*),
+	origin
+FROM flight
+GROUP BY origin
+ORDER BY count DESC;
+
+//you can also use clm numbers instead of names in ORDER BY
+SELECT
+	AVG(depdelay),
+	origin
+FROM flight
+GROUP BY origin
+ORDER BY 1 //1 as in the first clm in the select clause, but DONT USE THIS
+
+//if you want to find out how many airports in the table
+SELECT origin
+FROM flight
+GROUP BY origin;
+//or you can use DISTINCT
+SELECT DISTINCT(origin)  //this removes duplicates
+FROM flight;
+
+//list the top 5 planes identified by tailnum by number of landings at PHX or SEA on Sundays
+SELECT
+	COUNT(*),
+	tailnum
+FROM flight
+WHERE dayofweek = 7
+	AND dest IN ('PHX', 'SEA')
+GROUP BY tailnum
+ORDER BY count DESC
+LIMIT 5;
+
+
+
+
+--SUBQUERY
+--we want the avg departure delay by tail number, and return the tail numbers that has top 10 avg delay times
+SELECT
+	tailnum,
+	AVG(depdelay) as avg_dd
+FROM flight
+GROUP BY tailnum
+ORDERED BY avg_dd DESC
+LIMIT 10;
+----if we ONLY want to see the tailnum and NOT the avg_dd, however this is not correct
+--we could use SUBQUERY to solve this problem
+SELECT
+	tailnum
+FROM
+	(SELECT
+		tailnum,
+		AVG(depdelay) as avg_dd
+	FROM
+		flight
+	GROUP BY tailnum
+	ORDERED BY avg_dd DESC
+	LIMIT 10
+	) as my_original_query;
+----generaly it is SELECT clm_name FROM [your_first_query] as [some_name];
+--this may become memory consuming at times
+
+--now we want top 10 destination where the planes with top 10 avg depdelay showed up the most
+SELECT
+	COUNT(tailnum),
+	dest
+FROM
+	flight
+WHERE tailnum IN
+	(SELECT tailnum
+	FROM
+		(SELECT 
+			tailnum,
+			AVG(depdelay) as avg_dd
+		FROM flight
+		GROUP BY tailnum
+		ORDERD BY avg_dd DESC
+		LIMIT 10
+		) as my_original_query)
+GROUP BY dest
+ORDER BY count DESC
+LIMIT 10;
+
+
+
+
+--suppose now we want to see how many planes departed early, on time and late. SQL's if statement
+SELECT COUNT(*)
+	CASE WHEN depdelay < 0 THEN 'early'
+		 WHEN depdelay > 0 THEN 'late'
+		 ELSE 'ontime'
+	END as segment
+FROM flight
+GROUP BY segment
+LIMIT 10;
+
+--to see how many times an airport shows up more than 10000 times
+SELECT COUNT(*) as nmbr.
+	dest
+FROM flight
+GROUP BY dest
+WHERE nmbr > 10000; --THIS IS WRONG!! YOU CANNOT USE WHERE ON AGGREGATE FUNCTIONS
+-- you need to change it to
+SELECT COUNT(*) as nmbr,
+	dest
+FROM flight
+GROUP BY dest
+HAVING COUNT(*) > 10000; --cannot use alias with HAVING, must use the actual name
+
+
+
+
+
+####################order of keywords
+SELECT
+FROM
+WHERE
+GROUP BY
+ORDER BY 
+LIMIT
+####################
+--use double dash to comment in sql files
+--DONT USE * as select all, use clm names instead
+
+
+
+
+
+
+#################### JOIN two tables together ####################
+CREATE TABLE playlist(
+	artist VARCHAR,
+	song VARCHAR);
+
+CREATE TABLE toplist(
+	tophit VARCHAR,
+	play INT);
+
+INSERT INTO playlist (artist, song) VALUES
+	('ABBA','Dancing Queen'),
+	....;
+INSERT INTO toplist (tophit, play) VALUES
+	('Dancing Queen','95182647')
+	....;
+
+--good practice to check if it works
+SELECT artist,
+	song
+FROM playlist;
+SELECT tophit,
+	play
+FROM toplist;
+
+--now we will join them
+SELECT toplist.tophit,
+	toplist.play,
+	playlist.artist,
+	playlist.song
+FROM toplist
+JOIN playlist
+ON tophit = song;
+--this way we have 4 clms, the tophit and song clms are the same. BUT if a song exists in one list and not another, it will NOT show up on the
+--merged list. this is called 'inner join'
+
+--to remove this, we use
+SELECT
+	toplist.tophit,
+	toplist.play
+	playlist.artist
+FROM toplist
+JOIN playlist
+ON toplist.tophit = playlist.song;
+
+--now to incorporate ALL songs that may be missing in the other list, use FULL JOIN
+SELECT
+	toplist.tophit,
+	toplist.play,
+	playlist.artist
+FROM toplist
+FULL JOIN playlist
+ON toplist.tophit = playlist.song;
+--the missing data is NULL now
+
+--we want all the info in one of the tables, but the other one does not matter
+SELECT 
+	toplist.tophit,
+	toplist.play,
+	playlist.artist
+FROM toplist
+LEFT JOIN playlist
+on toplist.tophit = playlist.song;
+--keeps ALL from toplist, but only the ones that is in both in playlist
+--to do the opposite, do RIGHT JOIN playlist, which keeps ALL in playlist but not all in toplist
+
+
+--UNION operator, assume different data
+SELECT ID, NAME, DATE
+FROM customers
+LEFT JOIN orders
+ON customers.ID = orders.CUSTOMER_ID
+UNION
+SELECT ID, NAME, AMOUNT
+FROM cusomers
+RIGHT JOIN orders
+ON customer.ID = orders.CUSTOMER_ID
+
+
+-- now we want to know how many plays does each artist have in total
+SELECT
+	playlist.artist,
+	SUM(toplist.play)
+FROM playlist
+FULL JOIN toplist
+	ON playlist.song = toplist.tophit
+GROUP BY artist;
+
+--print the top 5 ABBA songs ordered by number of plays
+SELECT
+	playlist.artist
+	playlist.song
+	toplist.play,
+FROM playlist
+FULL JOIN toplist
+	ON playlist.song = toplist.tophit
+WHERE playlist.artist = 'ABBA'
+ORDERD BY toplist.plays DESC
+LIMIT 5;
+
+
+
+
+
+
+
+
+
+--now we see how we can change data
+UPDATE playlist
+SET artist = 'Beyonce'
+WHERE song = 'Halo';
+//this changes Halo to be by Beyonce, which originally may be wrong
+
+--now we change EVERY column to be by Beyonce
+UPDATE playlist
+SET artist = 'Beyonce';
+
+
+
+
+
+
+
+
+
+
+
